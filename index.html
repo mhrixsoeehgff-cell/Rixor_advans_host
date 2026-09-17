@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_name }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{background:#0a0a12;font-family:'Rajdhani',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden}
+        canvas{position:fixed;inset:0;z-index:0;opacity:0.4}
+        .container{position:relative;z-index:10;width:100%;max-width:420px;padding:0 16px}
+        .card{background:rgba(10,10,20,0.85);backdrop-filter:blur(20px);border:2px solid {{ theme_color }};border-radius:30px;padding:40px 36px;box-shadow:0 0 80px {{ theme_color }}22,0 0 160px {{ theme_color }}11;position:relative;overflow:hidden}
+        .card::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:conic-gradient(from 0deg,transparent,{{ theme_color }}11,transparent,{{ theme_color }}11,transparent);animation:spin 12s linear infinite;pointer-events:none}
+        @keyframes spin{100%{transform:rotate(360deg)}}
+        .logo{text-align:center;margin-bottom:20px;position:relative}
+        .logo img{width:100px;height:100px;border-radius:50%;border:3px solid {{ theme_color }};box-shadow:0 0 40px {{ theme_color }}44;object-fit:cover;background:#000}
+        .brand{text-align:center;font-family:'Orbitron',monospace;font-size:22px;font-weight:900;color:{{ theme_color }};letter-spacing:6px;text-shadow:0 0 30px {{ theme_color }};margin-bottom:4px;position:relative}
+        .sub{text-align:center;font-size:12px;color:{{ theme_color }}66;letter-spacing:5px;margin-bottom:28px;font-weight:300}
+        .prompt{font-size:15px;color:{{ theme_color }};margin-bottom:16px;opacity:.85;font-weight:600;letter-spacing:1px}
+        .cursor{display:inline-block;width:10px;height:18px;background:{{ theme_color }};margin-left:4px;vertical-align:middle;animation:blink 1s step-end infinite}
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+        .error-box{background:#2a0808;border:2px solid #ef4444;border-radius:12px;padding:12px 16px;font-size:13px;color:#f87171;margin-bottom:14px;font-weight:500}
+        input{width:100%;padding:14px 18px;background:rgba(0,0,0,0.5);border:2px solid {{ theme_color }}66;border-radius:14px;color:{{ theme_color }};font-family:'Rajdhani',sans-serif;font-size:16px;outline:none;margin-bottom:14px;transition:all .3s;font-weight:600;letter-spacing:1px}
+        input:focus{border-color:{{ theme_color }};box-shadow:0 0 30px {{ theme_color }}22;background:rgba(0,0,0,0.7)}
+        input::placeholder{color:{{ theme_color }}44;font-weight:400;letter-spacing:1px}
+        .auth-btn{width:100%;padding:16px;background:transparent;border:3px solid {{ theme_color }};border-radius:14px;color:{{ theme_color }};font-family:'Orbitron',monospace;font-size:14px;font-weight:700;letter-spacing:4px;cursor:pointer;transition:all .3s;margin-top:4px;position:relative;overflow:hidden}
+        .auth-btn:hover{background:{{ theme_color }}11;box-shadow:0 0 50px {{ theme_color }}33;transform:scale(1.01)}
+        .footer{text-align:center;margin-top:24px;font-size:10px;color:{{ theme_color }}44;letter-spacing:2px;line-height:1.8;font-weight:300}
+    </style>
+</head>
+<body>
+    <canvas id="matrix"></canvas>
+    <div class="container">
+        <div class="card">
+            <div class="logo">
+                <img src="https://files.catbox.moe/g533ba.png" alt="logo">
+            </div>
+            <div class="brand">{{ site_name }}</div>
+            <div class="sub">• SECURE TERMINAL v3.0 •</div>
+            <div class="prompt">> ACCESS_REQUEST<span class="cursor"></span></div>
+            {% if error %}
+            <div class="error-box">⚠ {{ error }}</div>
+            {% endif %}
+            <form method="POST">
+                <input type="password" name="password" placeholder="• ENTER ACCESS CODE •" required autofocus>
+                <button type="submit" class="auth-btn">⏣ AUTHENTICATE</button>
+            </form>
+            <div class="footer">⛔ UNAUTHORIZED ACCESS PROHIBITED<br>{{ site_name }} • SECURE SYSTEMS</div>
+        </div>
+    </div>
+    <script>
+        const AC='{{ theme_color }}';
+        const canvas=document.getElementById('matrix'),ctx=canvas.getContext('2d');
+        canvas.width=window.innerWidth;canvas.height=window.innerHeight;
+        const chars='0123456789アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン';
+        const cols=Math.floor(canvas.width/14),drops=Array(cols).fill(1);
+        setInterval(()=>{
+            ctx.fillStyle='rgba(10,10,18,0.05)';ctx.fillRect(0,0,canvas.width,canvas.height);
+            ctx.fillStyle=AC;ctx.font='12px monospace';
+            for(let i=0;i<drops.length;i++){
+                ctx.fillText(chars[Math.floor(Math.random()*chars.length)],i*14,drops[i]*14);
+                if(drops[i]*14>canvas.height&&Math.random()>.98)drops[i]=0;
+                drops[i]++;
+            }
+        },33);
+        window.addEventListener('resize',()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight;});
+    </script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{{ site_name }} · Maintenance</title>
+<style>
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+       background:#06010f;color:#e5e7eb;text-align:center;
+       font-family:'JetBrains Mono',monospace;padding:20px}
+  .box{background:rgba(10,0,21,.85);border:2px solid {{ theme_color }}88;
+       border-radius:14px;padding:40px 30px;max-width:460px;
+       box-shadow:0 0 40px {{ theme_color }}22}
+  .icon{font-size:60px;margin-bottom:16px}
+  h1{color:{{ theme_color }};margin:0 0 12px;font-size:22px;letter-spacing:3px;
+     text-shadow:0 0 10px {{ theme_color }}}
+  p{color:#9ca3af;line-height:1.6;margin:0}
+</style>
+</head>
+<body>
+  <div class="box">
+    <div class="icon">🛠️</div>
+    <h1>MAINTENANCE</h1>
+    <p>{{ message }}</p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ server_name.upper() }} — {{ site_name }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root{--ac:{{ theme_color }};--ac-dim:{{ theme_color }}88;--ac-lite:{{ theme_color }}11;}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{background:#06010f;color:#e5e7eb;font-family:'JetBrains Mono',monospace;min-height:100vh;position:relative}
+
+        #matrix{position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none}
+
+        header{background:rgba(10, 0, 21, 0.85);backdrop-filter:blur(10px);border-bottom:3px solid var(--ac-dim);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+        .logo{display:flex;align-items:center;gap:8px}
+        .logo-skull{font-size:20px;filter:drop-shadow(0 0 6px var(--ac))}
+        .logo-name{color:var(--ac);font-weight:700;font-size:15px;letter-spacing:1px;text-shadow:0 0 8px var(--ac)}
+
+        .btn{padding:6px 14px;border-radius:8px;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;border:2px solid;transition:all .2s;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+        .btn-red{border-color:#ef444488;color:#ef4444;background:transparent}
+        .btn-red:hover{background:#ef444411}
+
+        main{padding:20px;max-width:750px;margin:0 auto;position:relative;z-index:2}
+
+        .top-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+        .btn-back{border-color:var(--ac-dim);color:var(--ac);background:transparent}
+        .status-pill{font-size:11px;font-weight:700;letter-spacing:1px;display:flex;align-items:center;gap:6px}
+        .status-dot{width:8px;height:8px;border-radius:50%;background:#ef4444}
+        .status-dot.running{background:var(--ac);box-shadow:0 0 8px var(--ac)}
+
+        .control-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px}
+        .ctrl-btn{padding:12px;border-radius:10px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;border:2px solid;background:rgba(10, 0, 21, 0.85);backdrop-filter:blur(10px);transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;width:100%}
+
+        .btn-start{border-color:var(--ac);color:var(--ac);background:var(--ac-lite)}
+        .btn-start:hover{background:var(--ac);color:#000;box-shadow:0 0 15px var(--ac-dim)}
+        .btn-restart{border-color:var(--ac-dim);color:var(--ac)}
+        .btn-restart:hover{background:var(--ac-lite)}
+        .btn-stop{border-color:#ef444488;color:#ef4444}
+        .btn-stop:hover{background:#ef444422}
+
+        .btn-delete-full{width:100%;padding:12px;border-radius:10px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;border:2px solid #ef444488;color:#ef4444;background:rgba(10, 0, 21, 0.85);margin-bottom:20px;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .2s}
+        .btn-delete-full:hover{background:#ef444422;border-color:#ef4444}
+
+        .tabs{display:flex;gap:8px;margin-bottom:16px;background:rgba(10, 0, 21, 0.85);padding:6px;border-radius:10px;border:2px solid #1a0a2a}
+        .tab-btn{flex:1;padding:8px;border:none;background:transparent;color:#6b7280;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;border-radius:6px;transition:all .2s;text-align:center}
+        .tab-btn.active{background:var(--ac-lite);color:var(--ac);border:1px solid var(--ac-dim)}
+
+        .tab-content{display:none}
+        .tab-content.active{display:block}
+
+        .console-box{background:rgba(6, 1, 15, 0.95);border:2px solid var(--ac-dim);border-radius:12px;overflow:hidden;box-shadow:0 0 20px var(--ac-lite)}
+        .console-header{padding:10px 14px;background:rgba(10, 0, 21, 0.9);border-bottom:2px solid var(--ac-dim);display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--ac)}
+        .console-tools{display:flex;gap:6px}
+        .tool-btn{padding:4px 8px;border-radius:5px;font-size:9px;font-family:inherit;font-weight:700;cursor:pointer;background:transparent;border:1px solid}
+
+        .console-body{padding:14px;height:350px;overflow-y:auto;font-size:12px;color:var(--ac);line-height:1.5;white-space:pre-wrap;word-break:break-all}
+
+        .cmd-bar{padding:10px 14px;border-top:2px solid var(--ac-dim);background:rgba(10, 0, 21, 0.9);display:flex;align-items:center;gap:8px}
+        .cmd-input{background:transparent;border:none;color:var(--ac);font-family:inherit;font-size:12px;outline:none;width:100%}
+
+        .file-upload-zone{border:2px dashed var(--ac-dim);padding:30px;text-align:center;border-radius:10px;background:var(--ac-lite);cursor:pointer;margin-bottom:15px;transition:all .2s}
+        .file-upload-zone:hover{background:rgba(10, 0, 21, 0.85);border-color:var(--ac)}
+
+        .file-row{
+            display:flex;align-items:center;gap:8px;
+            padding:8px 10px;background:rgba(10, 0, 21, 0.6);
+            border:1px solid var(--ac-dim);border-radius:6px;margin-bottom:6px;
+            font-size:11px;color:var(--ac);
+        }
+        .file-row .file-icon{font-size:13px;flex-shrink:0}
+        .file-row .file-name{
+            flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+        }
+        .dots-btn{
+            background:transparent;border:none;color:var(--ac);
+            font-size:20px;font-weight:700;cursor:pointer;padding:0 8px;
+            line-height:1;flex-shrink:0;transition:all .2s;
+        }
+        .dots-btn:hover{color:#ff2222;text-shadow:0 0 8px var(--ac)}
+
+        #fileMenu{
+            position:fixed;display:none;flex-direction:column;gap:4px;
+            background:#0f001a;border:2px solid var(--ac-dim);
+            border-radius:8px;padding:6px;min-width:150px;z-index:999;
+            box-shadow:0 6px 25px rgba(255,0,0,.3);
+        }
+        #fileMenu.show{display:flex}
+        #fileMenu button{
+            background:transparent;border:none;color:#e5e7eb;
+            padding:9px 12px;text-align:left;cursor:pointer;
+            border-radius:5px;font-size:12px;font-family:inherit;font-weight:700;
+            display:flex;align-items:center;gap:10px;transition:all .15s;
+        }
+        #fileMenu button:hover{background:rgba(255,0,0,.12)}
+        #fileMenu .a-edit:hover{color:#22c55e}
+        #fileMenu .a-rename:hover{color:#f59e0b}
+        #fileMenu .a-delete:hover{color:#ef4444}
+
+        #editorModal{
+            display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);
+            z-index:1000;align-items:center;justify-content:center;padding:14px;
+            backdrop-filter:blur(4px);
+        }
+        #editorModal.show{display:flex}
+        #editorModal .modal{
+            background:#0f001a;border:2px solid var(--ac-dim);
+            border-radius:12px;width:100%;max-width:850px;padding:16px;
+            box-shadow:0 0 40px var(--ac-lite);
+        }
+        #editorModal h3{
+            margin:0 0 10px;color:var(--ac);font-size:13px;
+            letter-spacing:1px;font-family:inherit;
+            display:flex;justify-content:space-between;align-items:center;
+        }
+        #editorModal .close-x{
+            background:transparent;border:1px solid #ef444488;color:#ef4444;
+            width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:14px;
+        }
+        #editorBox{
+            width:100%;height:420px;padding:12px;
+            background:#06010f;color:var(--ac);
+            border:1px solid var(--ac-dim);border-radius:6px;
+            font-family:'JetBrains Mono',monospace;font-size:12px;
+            resize:vertical;outline:none;line-height:1.5;
+        }
+        .modal-actions{text-align:right;margin-top:10px}
+        .modal-actions button{
+            padding:9px 20px;border-radius:6px;font-weight:700;
+            cursor:pointer;border:2px solid;margin-left:8px;
+            font-family:inherit;font-size:11px;letter-spacing:1px;
+        }
+        .modal-actions .cancel{background:transparent;color:#6b7280;border-color:#374151}
+        .modal-actions .save{background:var(--ac);color:#000;border-color:var(--ac)}
+        .modal-actions .save:hover{box-shadow:0 0 15px var(--ac-dim)}
+    </style>
+</head>
+<body>
+    <canvas id="matrix"></canvas>
+
+    <header>
+        <div class="logo">
+            <span class="logo-skull">RIXOR HOST 👑</span>
+            <span class="logo-name">{{ site_name }}</span>
+        </div>
+        <a href="/logout" class="btn btn-red">↳ Logout</a>
+    </header>
+
+    <main>
+        <div class="top-nav">
+            <a href="/dashboard" class="btn btn-back">← BACK</a>
+            <div class="status-pill">
+                <span class="status-dot {{ 'running' if config.status == 'running' else '' }}"></span>
+                <span style="color: {{ theme_color if config.status == 'running' else '#ef4444' }}">
+                    {{ config.status.upper() }}
+                </span>
+            </div>
+        </div>
+
+        <div class="control-grid">
+            <button class="ctrl-btn btn-start" onclick="startServer()">▶ START</button>
+            <button class="ctrl-btn btn-restart" onclick="restartServer()">↻ RESTART</button>
+            <button class="ctrl-btn btn-stop" onclick="stopServer()">■ STOP</button>
+        </div>
+
+        <form action="/server/delete/{{ server_name }}" method="POST" onsubmit="return confirm('Delete {{ server_name }}?')">
+            <button type="submit" class="btn-delete-full">🗑 DELETE SERVER</button>
+        </form>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('logs', event)">LOGS</button>
+            <button class="tab-btn" onclick="switchTab('files', event)">FILES</button>
+            <button class="tab-btn" onclick="switchTab('packages', event)">PACKAGES</button>
+            <button class="tab-btn" onclick="switchTab('settings', event)">SETTINGS</button>
+        </div>
+
+        <!-- 1. LOGS -->
+        <div id="tab-logs" class="tab-content active">
+            <div class="console-box">
+                <div class="console-header">
+                    <div>&gt;_ CONSOLE <span style="font-size:9px;opacity:0.7">● {{ server_name }}</span></div>
+                    <div class="console-tools">
+                        <button class="tool-btn" style="border-color:#ef4444;color:#ef4444" onclick="clearLogs()">✕ CLEAR</button>
+                        <button class="tool-btn" style="border-color:var(--ac);color:var(--ac)" onclick="fetchLogs()">↻ REFRESH</button>
+                    </div>
+                </div>
+                <div id="logsBody" class="console-body">Loading console logs...</div>
+                <div class="cmd-bar">
+                    <span style="color:var(--ac);font-weight:700">&gt;</span>
+                    <input type="text" id="cmdInput" class="cmd-input" placeholder="Type a command..." onkeydown="if(event.key==='Enter')execCmd()">
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. FILES -->
+        <div id="tab-files" class="tab-content">
+            <div class="console-box" style="padding:20px">
+                <div style="margin-bottom:12px;font-size:12px;color:var(--ac);font-weight:700">📁 UPLOAD SERVER FILES</div>
+
+                <form action="/server/{{ server_name }}/upload" method="POST" enctype="multipart/form-data">
+                    <div class="file-upload-zone" onclick="document.getElementById('fileInput').click()">
+                        <div style="font-size:30px;margin-bottom:8px">📤</div>
+                        <div style="font-size:12px;color:var(--ac)">Click or Drag files to Upload (.zip, .py, .js)</div>
+                        <input type="file" id="fileInput" name="file" style="display:none" onchange="this.form.submit()">
+                    </div>
+                    <button type="submit" class="btn btn-start" style="width:100%;margin-bottom:20px">UPLOAD NOW</button>
+                </form>
+
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:12px;color:var(--ac);font-weight:700;border-top:1px solid var(--ac-dim);padding-top:15px">
+                    <span>📋 FILES</span>
+                    <button class="tool-btn" style="border-color:var(--ac);color:var(--ac);padding:4px 10px" onclick="createNewFile()">+ NEW FILE</button>
+                </div>
+
+                <div id="fileListContainer" style="max-height: 320px; overflow-y: auto;">
+                    {% if files %}
+                        {% for file in files %}
+                        <div class="file-row">
+                            <span class="file-icon">{% if file.type == 'dir' %}📁{% else %}📄{% endif %}</span>
+                            <span class="file-name" title="{{ file.path }}">{{ file.name }}</span>
+
+                            <button class="dots-btn"
+                                onclick="showFileMenu(event, this, '{{ file.path }}', '{{ file.name }}', '{{ file.type }}')">⋮</button>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div style="font-size:11px;color:#6b7280;text-align:center;padding:12px;border:1px dashed #374151;border-radius:6px">
+                            No files uploaded yet.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. PACKAGES -->
+        <div id="tab-packages" class="tab-content">
+            <div class="console-box" style="padding:20px">
+                <div style="margin-bottom:12px;font-size:12px;color:var(--ac);font-weight:700">📦 INSTALL PACKAGES / MODULES</div>
+                <p style="font-size:10px;color:#9ca3af;margin-bottom:12px">Type module name to install (e.g. py-cord, discord.js, express)</p>
+
+                <div style="display:flex;gap:10px;margin-bottom:10px">
+                    <input type="text" id="pkgInput" class="cmd-input" style="border:1px solid var(--ac-dim);padding:10px;border-radius:6px" placeholder="Package name (e.g. requests)">
+                    <button class="btn btn-start" onclick="installPackage()">INSTALL</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. SETTINGS -->
+        <div id="tab-settings" class="tab-content">
+            <div class="console-box" style="padding:20px">
+                <div style="margin-bottom:12px;font-size:12px;color:var(--ac);font-weight:700">⚙️ SERVER CONFIGURATION</div>
+
+                <label style="font-size:10px;color:#9ca3af">MAIN FILE</label>
+                <input type="text" id="mainFileInput" class="cmd-input" style="border:1px solid var(--ac-dim);padding:8px;border-radius:6px;margin-bottom:12px" value="{{ config.main_file or '' }}" placeholder="e.g. main.py / index.js">
+
+                <label style="font-size:10px;color:#9ca3af">CUSTOM COMMAND (OPTIONAL)</label>
+                <input type="text" id="mainCmdInput" class="cmd-input" style="border:1px solid var(--ac-dim);padding:8px;border-radius:6px;margin-bottom:16px" value="{{ config.main_command or '' }}" placeholder="e.g. python3 main.py">
+
+                <button class="btn btn-start" style="width:100%" onclick="saveSettings()">SAVE SETTINGS</button>
+            </div>
+        </div>
+    </main>
+
+    <div id="fileMenu"></div>
+
+    <div id="editorModal">
+        <div class="modal">
+            <h3>
+                <span>📝 EDIT — <span id="editorFileName" style="color:#fff"></span></span>
+                <button class="close-x" onclick="closeEditor()">✕</button>
+            </h3>
+            <input type="hidden" id="editorPath">
+            <textarea id="editorBox" spellcheck="false"></textarea>
+            <div class="modal-actions">
+                <button class="cancel" onclick="closeEditor()">CANCEL</button>
+                <button class="save" onclick="saveEditedFile()">💾 SAVE</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SERVER_NAME = "{{ server_name }}";
+
+        const canvas = document.getElementById('matrix');
+        const ctx = canvas.getContext('2d');
+        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        const chars = '0123456789アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン';
+        const fontSize = 14;
+        const drops = Array(Math.floor(canvas.width / fontSize)).fill(1);
+        function drawMatrix() {
+            ctx.fillStyle = 'rgba(6, 1, 15, 0.15)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '{{ theme_color }}';
+            ctx.font = fontSize + 'px monospace';
+            for (let i = 0; i < drops.length; i++) {
+                ctx.fillText(chars[Math.floor(Math.random() * chars.length)], i * fontSize, drops[i] * fontSize);
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            }
+        }
+        setInterval(drawMatrix, 33);
+
+        function switchTab(name, evt) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            if (evt) evt.target.classList.add('active');
+            const target = document.getElementById('tab-' + name);
+            if (target) target.classList.add('active');
+        }
+
+        async function startServer() {
+            await fetch(`/server/${SERVER_NAME}/start`, { method: 'POST' });
+            location.reload();
+        }
+        async function stopServer() {
+            await fetch(`/server/${SERVER_NAME}/stop`, { method: 'POST' });
+            location.reload();
+        }
+        async function restartServer() {
+            await stopServer();
+            setTimeout(startServer, 1000);
+        }
+
+        async function fetchLogs() {
+            try {
+                const res = await fetch(`/server/${SERVER_NAME}/logs`);
+                const data = await res.json();
+                const box = document.getElementById('logsBody');
+                box.textContent = data.logs || 'No logs found.';
+                box.scrollTop = box.scrollHeight;
+            } catch (e) {}
+        }
+        setInterval(fetchLogs, 3000);
+        fetchLogs();
+
+        async function clearLogs() {
+            await fetch(`/server/${SERVER_NAME}/logs/clear`, { method: 'POST' });
+            fetchLogs();
+        }
+
+        async function sendCommand(cmd) {
+            await fetch(`/server/${SERVER_NAME}/exec`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ command: cmd })
+            });
+            switchTab('logs');
+            setTimeout(fetchLogs, 500);
+        }
+        async function execCmd() {
+            const input = document.getElementById('cmdInput');
+            const cmd = input.value.trim();
+            if (!cmd) return;
+            input.value = '';
+            await sendCommand(cmd);
+        }
+        async function installPackage() {
+            const pkg = document.getElementById('pkgInput').value.trim();
+            if (!pkg) return alert('Enter package name!');
+            const runtime = "{{ config.runtime or 'python' }}";
+            const cmd = runtime === 'node' ? `npm install ${pkg}` : `pip install ${pkg}`;
+            alert(`Installing ${pkg}... Check logs console.`);
+            await sendCommand(cmd);
+        }
+
+        async function saveSettings() {
+            const mf = document.getElementById('mainFileInput').value.trim();
+            const mc = document.getElementById('mainCmdInput').value.trim();
+            await fetch(`/server/${SERVER_NAME}/settings`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ main_file: mf, main_command: mc })
+            });
+            alert('Settings saved successfully!');
+        }
+
+        function showFileMenu(ev, btn, path, name, type) {
+            ev.stopPropagation();
+            const menu = document.getElementById('fileMenu');
+
+            let html = '';
+            if (type === 'file') {
+                html += `<button class="a-edit"   onclick="editFile('${path}')">✏️ Edit</button>`;
+            }
+            html += `<button class="a-rename" onclick="renameFile('${path}','${name}')">✍️ Rename</button>`;
+            html += `<button class="a-delete" onclick="deleteFile('${path}')">🗑️ Delete</button>`;
+            menu.innerHTML = html;
+
+            const r = btn.getBoundingClientRect();
+            menu.style.top   = (r.bottom + 4) + 'px';
+            menu.style.right = (window.innerWidth - r.right) + 'px';
+            menu.classList.add('show');
+        }
+        document.addEventListener('click', () => {
+            document.getElementById('fileMenu').classList.remove('show');
+        });
+        window.addEventListener('scroll', () => {
+            document.getElementById('fileMenu').classList.remove('show');
+        }, true);
+
+        async function editFile(path) {
+            try {
+                const res = await fetch(`/server/${SERVER_NAME}/file/read?path=${encodeURIComponent(path)}`);
+                const d = await res.json();
+                if (!d.success) return alert(d.error || 'Could not read file');
+                document.getElementById('editorPath').value = path;
+                document.getElementById('editorFileName').textContent = path;
+                document.getElementById('editorBox').value = d.content;
+                document.getElementById('editorModal').classList.add('show');
+            } catch (e) {
+                alert('Error reading file');
+            }
+        }
+        function closeEditor() {
+            document.getElementById('editorModal').classList.remove('show');
+        }
+        async function saveEditedFile() {
+            const path = document.getElementById('editorPath').value;
+            const content = document.getElementById('editorBox').value;
+            try {
+                const res = await fetch(`/server/${SERVER_NAME}/file/save`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ path, content })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    closeEditor();
+                    location.reload();
+                } else {
+                    alert('❌ ' + (d.error || 'Save failed'));
+                }
+            } catch (e) {
+                alert('Error saving file');
+            }
+        }
+
+        async function deleteFile(path) {
+            if (!confirm(`Delete "${path}" ?`)) return;
+            try {
+                const res = await fetch(`/server/${SERVER_NAME}/file/delete`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ path })
+                });
+                const d = await res.json();
+                if (d.success) location.reload();
+                else alert('❌ ' + (d.error || 'Delete failed'));
+            } catch (e) {
+                alert('Error deleting file');
+            }
+        }
+
+        async function renameFile(path, oldName) {
+            const newName = prompt('New name:', oldName);
+            if (!newName || newName === oldName) return;
+            try {
+                const res = await fetch(`/server/${SERVER_NAME}/file/rename`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ path, new_name: newName })
+                });
+                const d = await res.json();
+                if (d.success) location.reload();
+                else alert('❌ ' + (d.error || 'Rename failed'));
+            } catch (e) {
+                alert('Error renaming file');
+            }
+        }
+
+        async function createNewFile() {
+            const name = prompt('New file name (e.g. test.py):');
+            if (!name) return;
+            try {
+                const res = await fetch(`/server/${SERVER_NAME}/file/save`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ path: name, content: '' })
+                });
+                const d = await res.json();
+                if (d.success) location.reload();
+                else alert('❌ ' + (d.error || 'Could not create'));
+            } catch (e) {
+                alert('Error creating file');
+            }
+        }
+    </script>
+</body>
+</html>

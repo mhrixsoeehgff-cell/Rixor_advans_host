@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_name }} — Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ac: {{ theme_color }};
+            --ac-dim: {{ theme_color }}66;
+            --ac-lite: {{ theme_color }}18;
+            --bg-dark: #08090e;
+            --card-bg: rgba(16, 18, 27, 0.65);
+            --card-border: rgba(255, 255, 255, 0.08);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background: var(--bg-dark);
+            color: #f3f4f6;
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        code, pre, .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        #matrix {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+
+        header {
+            background: rgba(10, 11, 18, 0.8);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--card-border);
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .logo { display: flex; align-items: center; gap: 10px; }
+        .logo-icon { font-size: 22px; filter: drop-shadow(0 0 10px var(--ac)); }
+        .logo-name {
+            color: #fff;
+            font-weight: 700;
+            font-size: 16px;
+            letter-spacing: 0.5px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .header-stats {
+            display: flex;
+            gap: 16px;
+            font-size: 11px;
+            color: #9ca3af;
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--card-border);
+        }
+
+        .header-stats span { display: flex; align-items: center; gap: 4px; }
+        .header-stats strong { color: var(--ac); }
+
+        .btn {
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid;
+            transition: all .2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-red {
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.05);
+        }
+        .btn-red:hover {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: #ef4444;
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.2);
+        }
+
+        main {
+            padding: 30px 20px;
+            max-width: 760px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 2;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+        .stat-card:hover { transform: translateY(-2px); }
+
+        .stat-num {
+            font-size: 36px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+        .stat-num.ac { color: var(--ac); text-shadow: 0 0 16px var(--ac-dim); }
+        .stat-num.white { color: #f9fafb; }
+        .stat-label { font-size: 11px; color: #6b7280; font-weight: 600; letter-spacing: 1.5px; }
+
+        .server-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            border-left: 4px solid #374151;
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 16px;
+            transition: all .25s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+        .server-card.running { border-left-color: var(--ac); }
+        .server-card.stopped { border-left-color: #ef4444; }
+        .server-card:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+        }
+
+        .server-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .server-name { font-weight: 700; font-size: 16px; color: #fff; letter-spacing: .3px; font-family: 'JetBrains Mono', monospace; }
+        
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.5px;
+            border: 1px solid;
+        }
+        .status-badge.running {
+            border-color: var(--ac);
+            color: var(--ac);
+            background: var(--ac-lite);
+            box-shadow: 0 0 10px var(--ac-lite);
+        }
+        .status-badge.stopped { border-color: rgba(239, 68, 68, 0.4); color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+
+        .server-sub { font-size: 12px; color: #9ca3af; margin-bottom: 18px; font-family: 'JetBrains Mono', monospace; }
+
+        .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .action-btn {
+            height: 38px;
+            padding: 0 14px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .2s;
+            font-family: inherit;
+            border: 1px solid var(--card-border);
+            color: #d1d5db;
+            text-decoration: none;
+        }
+        .action-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        .fab {
+            bottom: 32px;
+            right: 32px;
+            position: fixed;
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            background: var(--ac);
+            color: #000 !important;
+            border: none;
+            font-size: 28px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 8px 25px var(--ac-dim);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            transition: all .25s ease;
+        }
+        .fab:hover { transform: scale(1.08) rotate(90deg); }
+
+        .modal-bg {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .modal-bg.show { display: flex; }
+        .modal {
+            background: #0f111a;
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 28px;
+            width: 340px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+        .modal-title { font-size: 14px; font-weight: 700; color: var(--ac); letter-spacing: 1.5px; margin-bottom: 20px; font-family: 'JetBrains Mono', monospace; }
+        .form-group { margin-bottom: 16px; }
+        .form-label { font-size: 11px; color: #9ca3af; display: block; margin-bottom: 8px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+        .form-input {
+            width: 100%;
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+            transition: all .2s;
+        }
+        .form-input:focus { border-color: var(--ac); background: rgba(255, 255, 255, 0.07); }
+        select.form-input option { background: #0f111a; color: #fff; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 24px; }
+        .modal-btn {
+            flex: 1;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            background: var(--ac);
+            color: #000;
+            transition: all .2s;
+        }
+        .modal-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .modal-cancel { background: rgba(255, 255, 255, 0.05); color: #9ca3af; border: 1px solid var(--card-border); }
+        .modal-cancel:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+    </style>
+</head>
+<body>
+    <canvas id="matrix"></canvas>
+
+    <header>
+        <div class="logo">
+            <span class="logo-icon">👑</span>
+            <span class="logo-name">{{ site_name }}</span>
+        </div>
+        <div class="header-stats">
+            <span>CPU <strong id="statCpu">--%</strong></span>
+            <span>RAM <strong id="statRam">--%</strong></span>
+            <span>DISK <strong id="statDisk">--%</strong></span>
+        </div>
+        <div class="header-right">
+            <a href="/logout" class="btn btn-red">LOGOUT</a>
+        </div>
+    </header>
+
+    <main>
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-num ac">{{ running }}</div>
+                <div class="stat-label">RUNNING</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-num white">{{ total }}</div>
+                <div class="stat-label">TOTAL</div>
+            </div>
+        </div>
+
+        {% if servers %}
+            {% for name, cfg in servers.items() %}
+            <div class="server-card {{ cfg.status }}">
+                <div class="server-top">
+                    <span class="server-name">{{ name.upper() }}</span>
+                    <span class="status-badge {{ cfg.status }}">{{ cfg.status.upper() }}</span>
+                </div>
+                <div class="server-sub">⚡ {{ cfg.runtime }} • {{ cfg.main_file or 'main.py' }}</div>
+                <div class="actions">
+                    {% if cfg.status == 'running' %}
+                    <form action="/server/{{ name }}/stop" method="POST" style="display:inline">
+                        <button class="action-btn" style="color:#ef4444; border-color: rgba(239, 68, 68, 0.3);" title="Stop">Stop ■</button>
+                    </form>
+                    {% else %}
+                    <form action="/server/{{ name }}/start" method="POST" style="display:inline">
+                        <button class="action-btn" style="color:var(--ac); border-color: var(--ac-dim);" title="Start">Start ▶</button>
+                    </form>
+                    {% endif %}
+                    
+                    <a href="/server/{{ name }}" class="action-btn" title="View Console">Console ⚙️</a>
+                    
+                    <form action="/server/{{ name }}/upload" method="POST" enctype="multipart/form-data" style="display:inline">
+                        <input type="file" id="upload-{{ name }}" name="file" accept=".zip,.py,.js,.ts,.html,.css,.json,.txt,.md,.sh" style="display:none" onchange="this.form.submit()">
+                        <button type="button" class="action-btn" title="Upload Files" onclick="document.getElementById('upload-{{ name }}').click()">Upload 📁</button>
+                    </form>
+
+                    <form action="/server/delete/{{ name }}" method="POST" style="display:inline" onsubmit="return confirm('Delete {{ name }}?')">
+                        <button class="action-btn" style="color:#ef4444" title="Delete">🗑</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        {% endif %}
+    </main>
+
+    <button class="fab" onclick="document.getElementById('createModal').classList.add('show')">+</button>
+
+    <div id="createModal" class="modal-bg" onclick="if(event.target===this)this.classList.remove('show')">
+        <div class="modal">
+            <div class="modal-title">NEW PROJECT</div>
+            <form action="/server/create" method="POST">
+                <div class="form-group">
+                    <label class="form-label">PROJECT NAME</label>
+                    <input class="form-input" name="name" placeholder="my-bot" required autofocus>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">RUNTIME</label>
+                    <select class="form-input" name="runtime">
+                        <option value="python">Python</option>
+                        <option value="node">Node.js</option>
+                        <option value="static">Static</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="modal-btn modal-cancel" onclick="document.getElementById('createModal').classList.remove('show')">CANCEL</button>
+                    <button type="submit" class="modal-btn">CREATE</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('matrix');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        const chars = '0123456789アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン';
+        const fontSize = 14;
+        const cols = Math.floor(canvas.width / fontSize);
+        const drops = Array(cols).fill(1);
+
+        function drawMatrix() {
+            ctx.fillStyle = 'rgba(8, 9, 14, 0.15)'; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '{{ theme_color }}';
+            ctx.font = fontSize + 'px monospace';
+
+            for (let i = 0; i < drops.length; i++) {
+                const text = chars[Math.floor(Math.random() * chars.length)];
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            }
+        }
+        setInterval(drawMatrix, 40);
+
+        async function fetchStats(){
+            try{
+                const r=await fetch('/api/stats');
+                const d=await r.json();
+                document.getElementById('statCpu').textContent=d.cpu.toFixed(1)+'%';
+                document.getElementById('statRam').textContent=d.ram.toFixed(1)+'%';
+                document.getElementById('statDisk').textContent=d.disk.toFixed(1)+'%';
+            }catch(e){}
+        }
+        fetchStats();
+        setInterval(fetchStats,5000);
+    </script>
+</body>
+</html>

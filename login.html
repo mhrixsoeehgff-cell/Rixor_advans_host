@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_name }} - Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background-color: #0d0d13;
+            color: {{ theme_color }};
+            font-family: monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #matrix {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        .container {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+        }
+        .card {
+            background: rgba(10, 10, 20, 0.85);
+            backdrop-filter: blur(15px);
+            border: 2px solid {{ theme_color }};
+            border-radius: 20px;
+            padding: 30px 25px;
+            box-shadow: 0 0 30px {{ theme_color }}33;
+            text-align: center;
+        }
+
+        .logo-box {
+            width: 110px;
+            height: 110px;
+            margin: 0 auto 20px auto;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 3px solid {{ theme_color }};
+            box-shadow: 0 0 25px {{ theme_color }}55;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .logo-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .brand {
+            font-size: 20px;
+            font-weight: bold;
+            letter-spacing: 3px;
+            margin-bottom: 5px;
+        }
+        .sub {
+            font-size: 11px;
+            opacity: 0.8;
+            letter-spacing: 2px;
+            margin-bottom: 15px;
+        }
+        .prompt {
+            font-size: 12px;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+        }
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 12px;
+            background-color: {{ theme_color }};
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        .error-box {
+            color: #ff4757;
+            font-size: 12px;
+            margin-bottom: 15px;
+        }
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid {{ theme_color }};
+            border-radius: 8px;
+            color: #fff;
+            outline: none;
+            margin-bottom: 15px;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+        .auth-btn {
+            width: 100%;
+            padding: 12px;
+            background: {{ theme_color }};
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            letter-spacing: 2px;
+            transition: 0.3s;
+        }
+        .auth-btn:hover {
+            box-shadow: 0 0 20px {{ theme_color }};
+            transform: scale(1.02);
+        }
+        .footer {
+            margin-top: 20px;
+            font-size: 10px;
+            opacity: 0.6;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="matrix"></canvas>
+
+    <div class="container">
+        <div class="card">
+
+            <div class="logo-box">
+                <img src="https://iili.io/CgvyH3G.md.jpg" alt="logo">
+            </div>
+
+            <div class="brand">{{ site_name }}</div>
+            <div class="sub">• SECURE TERMINAL v3.0 •</div>
+            <div class="prompt">> ACCESS_REQUEST<span class="cursor"></span></div>
+
+            {% if error %}
+            <div class="error-box">⚠️ {{ error }}</div>
+            {% endif %}
+
+            <form method="POST">
+                <input type="password" name="password" placeholder="• ENTER ACCESS CODE •" required autofocus>
+                <button type="submit" class="auth-btn">>_ LOGIN</button>
+            </form>
+
+            <div class="footer">
+                ⚠️ UNAUTHORIZED ACCESS PROHIBITED<br>
+                {{ site_name }} • SECURE SYSTEMS
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('matrix');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const chars = '01アイウエオカキクセコ';
+        const cols = Math.floor(canvas.width / 14);
+        const drops = Array(cols).fill(1);
+
+        function draw() {
+            ctx.fillStyle = 'rgba(10, 10, 18, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '{{ theme_color }}';
+            ctx.font = '12px monospace';
+
+            for (let i = 0; i < drops.length; i++) {
+                const text = chars[Math.floor(Math.random() * chars.length)];
+                ctx.fillText(text, i * 14, drops[i] * 14);
+                if (drops[i] * 14 > canvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            }
+        }
+        setInterval(draw, 33);
+    </script>
+</body>
+</html>
