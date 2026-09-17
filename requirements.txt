@@ -1,0 +1,17 @@
+flask==3.0.3
+gunicorn==22.0.0
+werkzeug==3.0.3
+psutil>=5.9.0
+requests
+aiohttp
+python-telegram-bot
+discord.py
+pandas
+numpy
+Pillow
+beautifulsoup4
+redis
+pymongo
+cryptography
+python-dotenv
+loguru
