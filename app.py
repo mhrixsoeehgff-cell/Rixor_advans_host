@@ -9,6 +9,7 @@ import psutil
 import threading
 import time
 import urllib.request
+import urllib.error
 import sys
 import shlex
 from pathlib import Path
@@ -16,7 +17,7 @@ from functools import wraps
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 
-app = Flask(__name__, template_folder='.')
+app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24).hex())
 
 BASE_DIR = Path(__file__).parent
@@ -24,10 +25,18 @@ DATA_FILE = BASE_DIR / "data.json"
 SERVERS_DIR = BASE_DIR / "servers"
 SERVERS_DIR.mkdir(exist_ok=True)
 
-NORMAL_PASSWORD = os.environ.get("NORMAL_PASSWORD", "Rixor2")
+NORMAL_PASSWORD = os.environ.get("NORMAL_PASSWORD", "Rixor")
 DEFAULT_THEME = "#ff2222"
 
 RUNNING_PROCESSES = {}
+START_TIME = time.time()
+
+# ⚠️ এখানে আপনার Render URL বসান (deploy করার পর)
+# অথবা Render Dashboard → Environment → KEEP_ALIVE_URL সেট করুন
+MY_RENDER_URL = os.environ.get(
+    "KEEP_ALIVE_URL",
+    "https://rixor-advans-host-4.onrender.com"   # ← এইটা পরিবর্তন করুন
+)
 
 
 def load_data():
@@ -134,10 +143,7 @@ def prepare_environment_and_deps(extract_dir, log_path, runtime="python"):
 
     existing_pythonpath = env.get("PYTHONPATH", "")
     new_pythonpath = os.pathsep.join(subfolders)
-    if existing_pythonpath:
-        env["PYTHONPATH"] = new_pythonpath + os.pathsep + existing_pythonpath
-    else:
-        env["PYTHONPATH"] = new_pythonpath
+    env["PYTHONPATH"] = f"{new_pythonpath}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else new_pythonpath
 
     try:
         if runtime == "node":
@@ -145,20 +151,23 @@ def prepare_environment_and_deps(extract_dir, log_path, runtime="python"):
             node_modules = extract_dir / "node_modules"
             if pkg_json.exists() and not node_modules.exists():
                 with open(log_path, "a") as lf:
-                    lf.write("\n[SYSTEM] Installing Node.js dependencies via npm install...\n")
+                    lf.write(f"\n[SYSTEM] Installing Node.js dependencies via npm install...\n")
                 subprocess.run(["npm", "install"], cwd=str(extract_dir),
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         else:
             req_file = extract_dir / "requirements.txt"
             if req_file.exists():
                 with open(log_path, "a") as lf:
-                    lf.write("\n[SYSTEM] Installing Python dependencies via pip install...\n")
-                subprocess.run([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"],
-                               cwd=str(extract_dir),
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    lf.write(f"\n[SYSTEM] Installing Python dependencies via pip install...\n")
+                subprocess.run(
+                    [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"],
+                    cwd=str(extract_dir),
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
     except Exception as e:
         with open(log_path, "a") as lf:
-            lf.write("\n[SYSTEM WARNING] Dependency auto-install error: " + str(e) + "\n")
+            lf.write(f"\n[SYSTEM WARNING] Dependency auto-install error: {e}\n")
 
     return env
 
@@ -205,55 +214,134 @@ def _ensure_theme():
 _ensure_theme()
 
 
-# ==================== KEEP ALIVE ====================
+# ==================== 🔥 24/7 SELF-PING SYSTEM (No External Bot) ====================
+def self_ping_worker():
+    """
+    নিজেই নিজেকে ping করে Render-এর 15-min inactivity sleep prevent করে।
+    কোনো external uptime website/bot লাগবে না।
+    """
+    # App fully start হতে 90 seconds wait
+    time.sleep(90)
 
-def render_keep_alive():
+    ping_count = 0
+    fail_count = 0
+
     while True:
         try:
-            time.sleep(600)
+            # URL list তৈরি (সব possible source থেকে)
+            urls = []
+
+            # 1. Hardcoded URL (সবচেয়ে reliable)
+            if MY_RENDER_URL and "YOUR-APP-NAME" not in MY_RENDER_URL:
+                urls.append(f"{MY_RENDER_URL.rstrip('/')}/api/ping")
+
+            # 2. Render-provided URL (যদি থাকে)
+            env_url = os.environ.get("RENDER_EXTERNAL_URL")
+            if env_url:
+                urls.append(f"{env_url.rstrip('/')}/api/ping")
+
+            # 3. Render hostname
+            hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+            if hostname:
+                urls.append(f"https://{hostname}/api/ping")
+
+            # 4. Localhost (internal self-ping - সবচেয়ে নিশ্চিত)
             port = os.environ.get("PORT", 5000)
-            url = "http://127.0.0.1:" + str(port) + "/api/ping"
-            req = urllib.request.Request(url, headers={"User-Agent": "Render-KeepAlive/1.0"})
-            urllib.request.urlopen(req, timeout=10)
+            urls.append(f"http://127.0.0.1:{port}/api/ping")
 
-            external_url = os.environ.get("RENDER_EXTERNAL_URL")
-            if external_url:
-                ping_url = external_url + "/api/ping"
-                req2 = urllib.request.Request(ping_url, headers={"User-Agent": "Render-KeepAlive/1.0"})
-                urllib.request.urlopen(req2, timeout=10)
-        except Exception:
-            pass
+            # Duplicate সরাও
+            urls = list(dict.fromkeys(urls))
+
+            success = False
+            for url in urls:
+                try:
+                    req = urllib.request.Request(
+                        url,
+                        headers={
+                            "User-Agent": "Render-SelfPing/2.0",
+                            "Cache-Control": "no-cache"
+                        }
+                    )
+                    with urllib.request.urlopen(req, timeout=20) as resp:
+                        if resp.status == 200:
+                            ping_count += 1
+                            success = True
+                            print(f"[SELF-PING ✅ #{ping_count}] {url}")
+                            break  # একটা success হলেই বাকিগুলো skip
+                except Exception as e:
+                    print(f"[SELF-PING ⚠️] {url} → {e}")
+                    continue
+
+            if not success:
+                fail_count += 1
+                print(f"[SELF-PING ❌] All URLs failed (total fails: {fail_count})")
+
+            # 12 মিনিট wait = 15 min sleep threshold-এর নিচে
+            time.sleep(720)
+
+        except Exception as e:
+            print(f"[SELF-PING ERROR] {e}")
+            time.sleep(60)
 
 
-threading.Thread(target=render_keep_alive, daemon=True).start()
+# Worker start
+threading.Thread(target=self_ping_worker, daemon=True, name="SelfPing").start()
 
 
 @app.route("/api/ping")
 def ping():
-    return "pong", 200
+    """Health endpoint - self-ping এখানে hit করে"""
+    return jsonify({
+        "status": "alive",
+        "timestamp": datetime.now().isoformat(),
+        "uptime_seconds": int(time.time() - START_TIME),
+        "site": "RIXOR HOST"
+    }), 200
 
 
-def keep_alive():
-    while True:
-        time.sleep(240)
-        try:
-            url = os.environ.get("RENDER_EXTERNAL_URL")
-            if url:
-                ping_url = url + "/api/ping"
-            else:
-                port = os.environ.get("PORT", 5000)
-                ping_url = "http://127.0.0.1:" + str(port) + "/api/ping"
-            req = urllib.request.Request(ping_url, headers={"User-Agent": "KeepAlive-Bot/1.0"})
-            urllib.request.urlopen(req, timeout=10)
-        except Exception:
-            pass
+@app.route("/health")
+def health():
+    """Alternative health check"""
+    return "OK", 200
 
 
-threading.Thread(target=keep_alive, daemon=True).start()
+# ==================== 🚀 STARTUP RECOVERY (Restart হলে servers auto-start) ====================
+def startup_recovery():
+    """
+    Render restart/redeploy হলে যেসব server running ছিলো, সেগুলো auto-start করবে।
+    """
+    time.sleep(45)  # App fully initialize হওয়ার জন্য wait
+
+    try:
+        data = load_data()
+        recovered = 0
+
+        for name, cfg in data["servers"].items():
+            if cfg.get("status") == "running":
+                extract_dir = SERVERS_DIR / name / "extracted"
+                main_file = cfg.get("main_file") or auto_detect_main_file(extract_dir)
+
+                if (extract_dir / main_file).exists():
+                    print(f"[RECOVERY 🔄] Restarting: {name}")
+                    threading.Thread(
+                        target=auto_restart_server,
+                        args=[name],
+                        daemon=True
+                    ).start()
+                    recovered += 1
+                    time.sleep(5)  # একটার পর একটা
+
+        if recovered:
+            print(f"[RECOVERY ✅] Recovered {recovered} server(s)")
+
+    except Exception as e:
+        print(f"[RECOVERY ❌] {e}")
 
 
-# ==================== AUTO RESTART ====================
+threading.Thread(target=startup_recovery, daemon=True, name="Recovery").start()
 
+
+# ==================== AUTO RESTART SYSTEM ====================
 def auto_restart_server(name):
     try:
         data = load_data()
@@ -290,21 +378,24 @@ def auto_restart_server(name):
         env["PORT"] = str(cfg.get("port", 8080))
 
         with open(log_path, "a") as lf:
-            lf.write("\n" + "=" * 50 + "\n")
-            lf.write("[" + datetime.now().isoformat() + "] AUTO-RESTART triggered\n")
-            lf.write("=" * 50 + "\n")
+            lf.write(f"\n{'='*50}\n[{datetime.now().isoformat()}] AUTO-RESTART triggered\n{'='*50}\n")
 
         log_file = open(log_path, "a")
-        proc = subprocess.Popen(cmd, cwd=str(extract_dir),
-                                stdout=log_file, stderr=log_file,
-                                env=env, preexec_fn=os.setsid)
+        proc = subprocess.Popen(
+            cmd,
+            cwd=str(extract_dir),
+            stdout=log_file,
+            stderr=log_file,
+            env=env,
+            preexec_fn=os.setsid
+        )
         RUNNING_PROCESSES[name] = {"proc": proc, "log_file": log_file}
         cfg["status"] = "running"
         cfg["pid"] = proc.pid
         data["servers"][name] = cfg
         save_data(data)
     except Exception as e:
-        print("Auto-restart error for " + name + ": " + str(e))
+        print(f"Auto-restart error for {name}: {e}")
 
 
 def auto_restart_monitor():
@@ -325,18 +416,21 @@ def auto_restart_monitor():
                     extract_dir = SERVERS_DIR / name / "extracted"
                     main_file = cfg.get("main_file") or auto_detect_main_file(extract_dir)
                     if (extract_dir / main_file).exists():
-                        threading.Thread(target=auto_restart_server, args=[name], daemon=True).start()
+                        threading.Thread(
+                            target=auto_restart_server,
+                            args=[name],
+                            daemon=True
+                        ).start()
 
             time.sleep(interval)
         except Exception:
             time.sleep(30)
 
 
-threading.Thread(target=auto_restart_monitor, daemon=True).start()
+threading.Thread(target=auto_restart_monitor, daemon=True, name="AutoRestart").start()
 
 
 # ==================== LOGIN ====================
-
 @app.route("/", methods=["GET", "POST"])
 def login():
     if session.get("username"):
@@ -389,7 +483,6 @@ def logout():
 
 
 # ==================== DASHBOARD ====================
-
 @app.route("/dashboard")
 @login_required
 def dashboard():
@@ -398,7 +491,6 @@ def dashboard():
     settings = data.get("settings", {})
     site_name = settings.get("site_name", "RIXOR HOST")
     user_servers = {k: v for k, v in data["servers"].items() if v.get("owner") == username}
-
     changed = False
     for name, cfg in user_servers.items():
         pid = cfg.get("pid")
@@ -409,7 +501,6 @@ def dashboard():
             changed = True
     if changed:
         save_data(data)
-
     running = sum(1 for v in user_servers.values() if v.get("status") == "running")
     return render_template(
         "dashboard.html",
@@ -432,7 +523,6 @@ def system_stats():
 
 
 # ==================== SERVER CRUD ====================
-
 @app.route("/server/create", methods=["POST"])
 @login_required
 def create_server():
@@ -440,11 +530,9 @@ def create_server():
     runtime = request.form.get("runtime", "python")
     if not name:
         return redirect(url_for("dashboard"))
-
     data = load_data()
     if name in data["servers"]:
         return redirect(url_for("dashboard"))
-
     cfg = {
         "name": name,
         "owner": session["username"],
@@ -484,23 +572,6 @@ def delete_server(name):
     return redirect(url_for("dashboard"))
 
 
-def list_files(directory, base=""):
-    result = []
-    if not directory.exists():
-        return result
-    try:
-        for entry in sorted(directory.iterdir(), key=lambda e: (e.is_file(), e.name)):
-            rel = base + "/" + entry.name if base else entry.name
-            if entry.is_dir():
-                result.append({"name": entry.name, "path": rel, "type": "dir", "size": 0})
-                result.extend(list_files(entry, rel))
-            else:
-                result.append({"name": entry.name, "path": rel, "type": "file", "size": entry.stat().st_size})
-    except Exception:
-        pass
-    return result
-
-
 @app.route("/server/<name>")
 @login_required
 def server_detail(name):
@@ -510,20 +581,16 @@ def server_detail(name):
         return "Server not found", 404
     if cfg.get("owner") != session["username"]:
         return "Access denied", 403
-
     pid = cfg.get("pid")
     if pid and not is_process_alive(pid):
         cfg["status"] = "stopped"
         cfg["pid"] = None
         data["servers"][name] = cfg
         save_data(data)
-
     if "main_command" not in cfg:
         cfg["main_command"] = ""
-
     extract_dir = SERVERS_DIR / name / "extracted"
     files = list_files(extract_dir)
-
     return render_template(
         "server.html",
         server_name=name,
@@ -531,6 +598,23 @@ def server_detail(name):
         files=files,
         theme_color=get_theme_color()
     )
+
+
+def list_files(directory, base=""):
+    result = []
+    if not directory.exists():
+        return result
+    try:
+        for entry in sorted(directory.iterdir(), key=lambda e: (e.is_file(), e.name)):
+            rel = f"{base}/{entry.name}" if base else entry.name
+            if entry.is_dir():
+                result.append({"name": entry.name, "path": rel, "type": "dir", "size": 0})
+                result.extend(list_files(entry, rel))
+            else:
+                result.append({"name": entry.name, "path": rel, "type": "file", "size": entry.stat().st_size})
+    except Exception:
+        pass
+    return result
 
 
 @app.route("/server/<name>/upload", methods=["POST"])
@@ -554,8 +638,10 @@ def upload_file(name):
     extract_dir = SERVERS_DIR / name / "extracted"
     extract_dir.mkdir(parents=True, exist_ok=True)
 
-    upload_path = SERVERS_DIR / name / ("upload_" + f.filename)
+    upload_path = SERVERS_DIR / name / f"upload_{f.filename}"
     f.save(upload_path)
+
+    extracted_files = []
 
     if f.filename.lower().endswith(".zip"):
         try:
@@ -564,25 +650,29 @@ def upload_file(name):
                     if member.filename.startswith(("/", "\\", "..", "../")):
                         upload_path.unlink(missing_ok=True)
                         return jsonify({"success": False, "error": "Invalid zip path"})
+
                 z.extractall(extract_dir)
+                for member in z.infolist():
+                    if not member.is_dir():
+                        extracted_files.append(member.filename)
             upload_path.unlink(missing_ok=True)
         except Exception as e:
             upload_path.unlink(missing_ok=True)
-            return jsonify({"success": False, "error": "Zip extraction failed: " + str(e)}), 500
+            return jsonify({"success": False, "error": f"Zip extraction failed: {str(e)}"}), 500
     else:
         dest = extract_dir / f.filename
         shutil.move(str(upload_path), str(dest))
+        extracted_files = [f.filename]
 
     if not cfg.get("main_file"):
         cfg["main_file"] = auto_detect_main_file(extract_dir)
-        data["servers"][name] = cfg
+        data['servers'][name] = cfg
         save_data(data)
 
-    return redirect(url_for("server_detail", name=name))
+    return redirect(url_for('server_detail', name=name))
 
 
 # ==================== FILE MANAGER ====================
-
 def _safe_path(server_name, rel_path):
     base = (SERVERS_DIR / server_name / "extracted").resolve()
     target = (base / rel_path).resolve()
@@ -630,7 +720,7 @@ def save_file(name):
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
-        return jsonify({"success": True, "message": "Saved " + rel})
+        return jsonify({"success": True, "message": f"Saved {rel}"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -654,7 +744,7 @@ def delete_file(name):
             shutil.rmtree(path)
         else:
             path.unlink()
-        return jsonify({"success": True, "message": "Deleted " + rel})
+        return jsonify({"success": True, "message": f"Deleted {rel}"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -683,16 +773,14 @@ def rename_file(name):
 
     new_path = old_path.parent / new_name
     if new_path.exists():
-        return jsonify({"success": False, "error": "File already exists"}), 400
+        return jsonify({"success": False, "error": "File with that name already exists"}), 400
 
     try:
         old_path.rename(new_path)
-        return jsonify({"success": True, "message": "Renamed to " + new_name})
+        return jsonify({"success": True, "message": f"Renamed to {new_name}"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-
-# ==================== SETTINGS / START / STOP ====================
 
 @app.route("/server/<name>/settings", methods=["POST"])
 @login_required
@@ -701,10 +789,11 @@ def save_settings(name):
     cfg = data["servers"].get(name)
     if not cfg:
         return jsonify({"success": False, "error": "Server not found"}), 404
+
     if cfg.get("owner") != session["username"]:
         return jsonify({"success": False, "error": "Access denied"}), 403
 
-    payload = request.get_json() or {}
+    payload = request.get_json()
     cfg["main_file"] = payload.get("main_file", cfg.get("main_file", ""))
     cfg["main_command"] = payload.get("main_command", cfg.get("main_command", ""))
     cfg["port"] = payload.get("port", cfg.get("port", 8080))
@@ -720,6 +809,7 @@ def start_server(name):
     cfg = data["servers"].get(name)
     if not cfg:
         return jsonify({"success": False, "error": "Server not found"}), 404
+
     if cfg.get("owner") != session["username"]:
         return jsonify({"success": False, "error": "Access denied"}), 403
 
@@ -733,7 +823,7 @@ def start_server(name):
     main_path = extract_dir / main_file
 
     if not main_path.exists():
-        return jsonify({"success": False, "error": main_file + " not found. Upload files first."})
+        return jsonify({"success": False, "error": f"{main_file} not found. Upload your files first."})
 
     log_path = SERVERS_DIR / name / "logs.txt"
     log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -748,14 +838,16 @@ def start_server(name):
 
     try:
         with open(log_path, "a") as lf:
-            lf.write("\n" + "=" * 50 + "\n")
-            lf.write("[" + datetime.now().isoformat() + "] Starting: " + " ".join(cmd) + "\n")
-            lf.write("=" * 50 + "\n")
-
+            lf.write(f"\n{'='*50}\n[{datetime.now().isoformat()}] Starting: {' '.join(cmd)}\n{'='*50}\n")
         log_file = open(log_path, "a")
-        proc = subprocess.Popen(cmd, cwd=str(extract_dir),
-                                stdout=log_file, stderr=log_file,
-                                env=env, preexec_fn=os.setsid)
+        proc = subprocess.Popen(
+            cmd,
+            cwd=str(extract_dir),
+            stdout=log_file,
+            stderr=log_file,
+            env=env,
+            preexec_fn=os.setsid
+        )
         RUNNING_PROCESSES[name] = {"proc": proc, "log_file": log_file}
         cfg["status"] = "running"
         cfg["pid"] = proc.pid
@@ -774,6 +866,7 @@ def stop_server(name):
     cfg = data["servers"].get(name)
     if not cfg:
         return jsonify({"success": False}), 404
+
     if cfg.get("owner") != session["username"]:
         return jsonify({"success": False}), 403
 
@@ -810,7 +903,7 @@ def stop_server(name):
     log_path = SERVERS_DIR / name / "logs.txt"
     try:
         with open(log_path, "a") as lf:
-            lf.write("[" + datetime.now().isoformat() + "] Server stopped\n")
+            lf.write(f"[{datetime.now().isoformat()}] Server stopped\n")
     except Exception:
         pass
 
@@ -821,8 +914,7 @@ def stop_server(name):
     return jsonify({"success": True})
 
 
-# ==================== LOGS & EXEC ====================
-
+# ==================== LOGS & EXECUTION ====================
 @app.route("/server/<name>/logs")
 @login_required
 def get_logs(name):
@@ -833,22 +925,22 @@ def get_logs(name):
 
     log_path = SERVERS_DIR / name / "logs.txt"
     if not log_path.exists():
-        return jsonify({"logs": "No logs yet."})
+        return jsonify({"logs": "No logs yet. Start the server to see output."})
 
     try:
-        with open(log_path, "rb") as f:
+        with open(log_path, 'rb') as f:
             f.seek(0, os.SEEK_END)
             size = f.tell()
             f.seek(max(0, size - 50000), os.SEEK_SET)
-            content = f.read().decode("utf-8", errors="ignore")
+            content = f.read().decode('utf-8', errors='ignore')
 
         lines = content.splitlines()
         if len(lines) > 200:
             lines = lines[-200:]
-            content = "... (last 200 lines) ...\n" + "\n".join(lines)
+            content = "... (showing last 200 lines) ...\n" + "\n".join(lines)
         return jsonify({"logs": content or "No output yet."})
     except Exception as e:
-        return jsonify({"logs": "Error: " + str(e)})
+        return jsonify({"logs": f"Error reading logs: {e}"})
 
 
 @app.route("/server/<name>/exec", methods=["POST"])
@@ -861,19 +953,29 @@ def exec_command(name):
 
     payload = request.get_json() or {}
     cmd_text = payload.get("command", "").strip()
+
     if not cmd_text:
-        return jsonify({"success": False, "error": "No command"})
+        return jsonify({"success": False, "error": "No command specified"})
 
     log_path = SERVERS_DIR / name / "logs.txt"
     extract_dir = SERVERS_DIR / name / "extracted"
 
     try:
         with open(log_path, "a") as lf:
-            lf.write("\n$ " + cmd_text + "\n")
-            cmd_args = shlex.split(cmd_text)
-            subprocess.Popen(cmd_args, cwd=str(extract_dir), stdout=lf, stderr=lf)
+            lf.write(f"\n$ {cmd_text}\n")
+
+        cmd_args = shlex.split(cmd_text)
+        with open(log_path, "a") as lf:
+            subprocess.Popen(
+                cmd_args,
+                cwd=str(extract_dir),
+                stdout=lf,
+                stderr=lf
+            )
         return jsonify({"success": True})
     except Exception as e:
+        with open(log_path, "a") as lf:
+            lf.write(f"Command execution error: {e}\n")
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -893,8 +995,7 @@ def clear_logs(name):
     return jsonify({"success": True})
 
 
-# ==================== PACKAGES ====================
-
+# ==================== PACKAGE MANAGER ====================
 @app.route("/server/<name>/packages", methods=["GET"])
 @login_required
 def list_packages(name):
@@ -918,14 +1019,14 @@ def list_packages(name):
         else:
             req_file = SERVERS_DIR / name / "extracted" / "requirements.txt"
             if req_file.exists():
-                for line in req_file.read_text().splitlines():
+                lines = req_file.read_text().splitlines()
+                for line in lines:
                     line = line.strip()
                     if line and not line.startswith("#"):
                         parts = line.split("==")
-                        installed.append({
-                            "name": parts[0].strip(),
-                            "version": parts[1].strip() if len(parts) > 1 else "latest"
-                        })
+                        pkg_name = parts[0].strip()
+                        ver = parts[1].strip() if len(parts) > 1 else "latest"
+                        installed.append({"name": pkg_name, "version": ver})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -945,7 +1046,7 @@ def install_package(name):
     version = payload.get("version", "").strip()
 
     if not pkg_name:
-        return jsonify({"success": False, "error": "Package name required"}), 400
+        return jsonify({"success": False, "error": "Package name is required"}), 400
 
     runtime = cfg.get("runtime", "python")
     extract_dir = SERVERS_DIR / name / "extracted"
@@ -953,25 +1054,26 @@ def install_package(name):
 
     try:
         if runtime == "node":
-            cmd = ["npm", "install", pkg_name + "@" + version if version else pkg_name]
+            cmd = ["npm", "install", f"{pkg_name}@{version}" if version else pkg_name]
             res = subprocess.run(cmd, cwd=str(extract_dir), capture_output=True, text=True)
             if res.returncode != 0:
-                return jsonify({"success": False, "error": res.stderr or "NPM install failed"})
+                return jsonify({"success": False, "error": res.stderr or "Failed to install NPM package"})
         else:
-            target_pkg = pkg_name + "==" + version if version else pkg_name
+            target_pkg = f"{pkg_name}=={version}" if version else pkg_name
             cmd = [sys.executable, "-m", "pip", "install", target_pkg]
             res = subprocess.run(cmd, capture_output=True, text=True)
             if res.returncode != 0:
-                return jsonify({"success": False, "error": res.stderr or "PIP install failed"})
+                return jsonify({"success": False, "error": res.stderr or "Failed to install PIP package"})
 
             req_file = extract_dir / "requirements.txt"
             lines = req_file.read_text().splitlines() if req_file.exists() else []
-            new_entry = pkg_name + "==" + version if version else pkg_name
+            new_entry = f"{pkg_name}=={version}" if version else pkg_name
+
             lines = [l for l in lines if not l.startswith(pkg_name + "==") and l != pkg_name]
             lines.append(new_entry)
             req_file.write_text("\n".join(lines))
 
-        return jsonify({"success": True, "message": "Installed " + pkg_name})
+        return jsonify({"success": True, "message": f"Package {pkg_name} installed successfully!"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -986,8 +1088,9 @@ def remove_package(name):
 
     payload = request.get_json() or {}
     pkg_name = payload.get("name", "").strip()
+
     if not pkg_name:
-        return jsonify({"success": False, "error": "Package name required"}), 400
+        return jsonify({"success": False, "error": "Package name is required"}), 400
 
     runtime = cfg.get("runtime", "python")
     extract_dir = SERVERS_DIR / name / "extracted"
@@ -995,7 +1098,9 @@ def remove_package(name):
     try:
         if runtime == "node":
             cmd = ["npm", "uninstall", pkg_name]
-            subprocess.run(cmd, cwd=str(extract_dir), capture_output=True, text=True)
+            res = subprocess.run(cmd, cwd=str(extract_dir), capture_output=True, text=True)
+            if res.returncode != 0:
+                return jsonify({"success": False, "error": res.stderr or "Failed to remove NPM package"})
         else:
             req_file = extract_dir / "requirements.txt"
             if req_file.exists():
@@ -1003,7 +1108,7 @@ def remove_package(name):
                 lines = [l for l in lines if not l.startswith(pkg_name + "==") and l != pkg_name]
                 req_file.write_text("\n".join(lines))
 
-        return jsonify({"success": True, "message": "Removed " + pkg_name})
+        return jsonify({"success": True, "message": f"Package {pkg_name} removed successfully!"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
