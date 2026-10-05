@@ -17,7 +17,9 @@ from functools import wraps
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 
-app = Flask(__name__)
+# ==================== APP INIT ====================
+# ✅ template_folder='.' দেওয়া হয়েছে যাতে root folder থেকেই HTML পড়ে
+app = Flask(__name__, template_folder='.')
 app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24).hex())
 
 BASE_DIR = Path(__file__).parent
@@ -31,14 +33,14 @@ DEFAULT_THEME = "#ff2222"
 RUNNING_PROCESSES = {}
 START_TIME = time.time()
 
-# ⚠️ এখানে আপনার Render URL বসান (deploy করার পর)
-# অথবা Render Dashboard → Environment → KEEP_ALIVE_URL সেট করুন
+# আপনার Render URL
 MY_RENDER_URL = os.environ.get(
     "KEEP_ALIVE_URL",
-    "https://rixor-advans-host-4.onrender.com"   # ← এইটা পরিবর্তন করুন
+    "https://rixor-advans-host-4.onrender.com"
 )
 
 
+# ==================== DATA MANAGEMENT ====================
 def load_data():
     if DATA_FILE.exists():
         try:
@@ -95,6 +97,7 @@ def login_required(f):
     return decorated
 
 
+# ==================== PROCESS MANAGEMENT ====================
 def is_process_alive(pid):
     try:
         if not pid:
@@ -214,42 +217,30 @@ def _ensure_theme():
 _ensure_theme()
 
 
-# ==================== 🔥 24/7 SELF-PING SYSTEM (No External Bot) ====================
+# ==================== SELF-PING 24/7 ====================
 def self_ping_worker():
-    """
-    নিজেই নিজেকে ping করে Render-এর 15-min inactivity sleep prevent করে।
-    কোনো external uptime website/bot লাগবে না।
-    """
-    # App fully start হতে 90 seconds wait
     time.sleep(90)
-
     ping_count = 0
     fail_count = 0
 
     while True:
         try:
-            # URL list তৈরি (সব possible source থেকে)
             urls = []
 
-            # 1. Hardcoded URL (সবচেয়ে reliable)
             if MY_RENDER_URL and "YOUR-APP-NAME" not in MY_RENDER_URL:
                 urls.append(f"{MY_RENDER_URL.rstrip('/')}/api/ping")
 
-            # 2. Render-provided URL (যদি থাকে)
             env_url = os.environ.get("RENDER_EXTERNAL_URL")
             if env_url:
                 urls.append(f"{env_url.rstrip('/')}/api/ping")
 
-            # 3. Render hostname
             hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
             if hostname:
                 urls.append(f"https://{hostname}/api/ping")
 
-            # 4. Localhost (internal self-ping - সবচেয়ে নিশ্চিত)
             port = os.environ.get("PORT", 5000)
             urls.append(f"http://127.0.0.1:{port}/api/ping")
 
-            # Duplicate সরাও
             urls = list(dict.fromkeys(urls))
 
             success = False
@@ -267,7 +258,7 @@ def self_ping_worker():
                             ping_count += 1
                             success = True
                             print(f"[SELF-PING ✅ #{ping_count}] {url}")
-                            break  # একটা success হলেই বাকিগুলো skip
+                            break
                 except Exception as e:
                     print(f"[SELF-PING ⚠️] {url} → {e}")
                     continue
@@ -276,7 +267,6 @@ def self_ping_worker():
                 fail_count += 1
                 print(f"[SELF-PING ❌] All URLs failed (total fails: {fail_count})")
 
-            # 12 মিনিট wait = 15 min sleep threshold-এর নিচে
             time.sleep(720)
 
         except Exception as e:
@@ -284,13 +274,11 @@ def self_ping_worker():
             time.sleep(60)
 
 
-# Worker start
 threading.Thread(target=self_ping_worker, daemon=True, name="SelfPing").start()
 
 
 @app.route("/api/ping")
 def ping():
-    """Health endpoint - self-ping এখানে hit করে"""
     return jsonify({
         "status": "alive",
         "timestamp": datetime.now().isoformat(),
@@ -301,26 +289,19 @@ def ping():
 
 @app.route("/health")
 def health():
-    """Alternative health check"""
     return "OK", 200
 
 
-# ==================== 🚀 STARTUP RECOVERY (Restart হলে servers auto-start) ====================
+# ==================== STARTUP RECOVERY ====================
 def startup_recovery():
-    """
-    Render restart/redeploy হলে যেসব server running ছিলো, সেগুলো auto-start করবে।
-    """
-    time.sleep(45)  # App fully initialize হওয়ার জন্য wait
-
+    time.sleep(45)
     try:
         data = load_data()
         recovered = 0
-
         for name, cfg in data["servers"].items():
             if cfg.get("status") == "running":
                 extract_dir = SERVERS_DIR / name / "extracted"
                 main_file = cfg.get("main_file") or auto_detect_main_file(extract_dir)
-
                 if (extract_dir / main_file).exists():
                     print(f"[RECOVERY 🔄] Restarting: {name}")
                     threading.Thread(
@@ -329,16 +310,11 @@ def startup_recovery():
                         daemon=True
                     ).start()
                     recovered += 1
-                    time.sleep(5)  # একটার পর একটা
-
+                    time.sleep(5)
         if recovered:
             print(f"[RECOVERY ✅] Recovered {recovered} server(s)")
-
     except Exception as e:
         print(f"[RECOVERY ❌] {e}")
-
-
-threading.Thread(target=startup_recovery, daemon=True, name="Recovery").start()
 
 
 # ==================== AUTO RESTART SYSTEM ====================
@@ -427,6 +403,8 @@ def auto_restart_monitor():
             time.sleep(30)
 
 
+# Thread start
+threading.Thread(target=startup_recovery, daemon=True, name="Recovery").start()
 threading.Thread(target=auto_restart_monitor, daemon=True, name="AutoRestart").start()
 
 
@@ -596,7 +574,8 @@ def server_detail(name):
         server_name=name,
         config=cfg,
         files=files,
-        theme_color=get_theme_color()
+        theme_color=get_theme_color(),
+        site_name=data.get("settings", {}).get("site_name", "RIXOR HOST")
     )
 
 
@@ -1113,6 +1092,7 @@ def remove_package(name):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# ==================== RUN ====================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
