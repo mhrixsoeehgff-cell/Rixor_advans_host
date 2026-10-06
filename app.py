@@ -27,7 +27,7 @@ DATA_FILE = BASE_DIR / "data.json"
 SERVERS_DIR = BASE_DIR / "servers"
 SERVERS_DIR.mkdir(exist_ok=True)
 
-NORMAL_PASSWORD = os.environ.get("NORMAL_PASSWORD", "Rixor")
+NORMAL_PASSWORD = os.environ.get("NORMAL_PASSWORD", "Rixor99")
 DEFAULT_THEME = "#ff2222"
 
 RUNNING_PROCESSES = {}
