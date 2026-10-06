@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_name }} - Login</title>
+    <!-- Google Fonts for a premium look -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -13,13 +15,15 @@
         body {
             background-color: #0d0d13;
             color: {{ theme_color }};
-            font-family: monospace;
+            font-family: 'Share Tech Mono', monospace; /* Cleaner tech font */
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
             overflow: hidden;
         }
+        
+        /* Background Animation (Matrix) */
         #matrix {
             position: fixed;
             top: 0;
@@ -27,24 +31,48 @@
             width: 100%;
             height: 100%;
             z-index: 1;
+            opacity: 0.8; /* Subtle transparency */
         }
+        
         .container {
             position: relative;
             z-index: 2;
             width: 100%;
-            max-width: 400px;
+            max-width: 420px;
             padding: 20px;
         }
+        
+        /* Card Styling */
         .card {
-            background: rgba(10, 10, 20, 0.85);
-            backdrop-filter: blur(15px);
+            background: rgba(5, 5, 10, 0.9); /* Deep dark background */
+            backdrop-filter: blur(10px);
             border: 2px solid {{ theme_color }};
             border-radius: 20px;
-            padding: 30px 25px;
-            box-shadow: 0 0 30px {{ theme_color }}33;
+            padding: 35px 25px;
+            box-shadow: 0 0 40px {{ theme_color }}44;
             text-align: center;
+            position: relative;
+            overflow: hidden;
         }
 
+        /* Faded Character Image inside Card */
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 100%;
+            background-image: url('https://files.catbox.moe/n5e1kb.jpeg'); /* Your character image */
+            background-size: cover;
+            background-position: center;
+            opacity: 0.08; /* Very light fade so text is readable */
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Logo Box */
         .logo-box {
             width: 110px;
             height: 110px;
@@ -52,10 +80,12 @@
             border-radius: 50%;
             overflow: hidden;
             border: 3px solid {{ theme_color }};
-            box-shadow: 0 0 25px {{ theme_color }}55;
+            box-shadow: 0 0 30px {{ theme_color }}66;
             display: flex;
             justify-content: center;
             align-items: center;
+            position: relative;
+            z-index: 1;
         }
         .logo-box img {
             width: 100%;
@@ -64,72 +94,111 @@
             display: block;
         }
 
+        /* RIXOR HOST Styling - Clean & Premium */
         .brand {
-            font-size: 20px;
-            font-weight: bold;
-            letter-spacing: 3px;
-            margin-bottom: 5px;
+            font-family: 'Cinzel', serif; /* Elegant serif font */
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: 5px;
+            margin-bottom: 8px;
+            color: #ffffff;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.6), 0 0 30px {{ theme_color }}88;
+            position: relative;
+            z-index: 1;
         }
+
         .sub {
             font-size: 11px;
             opacity: 0.8;
-            letter-spacing: 2px;
-            margin-bottom: 15px;
+            letter-spacing: 3px;
+            margin-bottom: 20px;
+            color: {{ theme_color }};
+            position: relative;
+            z-index: 1;
         }
+
         .prompt {
             font-size: 12px;
             margin-bottom: 20px;
             letter-spacing: 1px;
+            position: relative;
+            z-index: 1;
         }
+
         .cursor {
             display: inline-block;
             width: 8px;
-            height: 12px;
+            height: 14px;
             background-color: {{ theme_color }};
             animation: blink 1s infinite;
+            vertical-align: middle;
         }
+
         @keyframes blink {
             0%, 50% { opacity: 1; }
             51%, 100% { opacity: 0; }
         }
+
         .error-box {
             color: #ff4757;
             font-size: 12px;
             margin-bottom: 15px;
+            position: relative;
+            z-index: 1;
         }
+
+        /* Input Field */
         input[type="password"] {
             width: 100%;
-            padding: 12px;
-            background: rgba(0, 0, 0, 0.5);
+            padding: 14px;
+            background: rgba(0, 0, 0, 0.7);
             border: 1px solid {{ theme_color }};
             border-radius: 8px;
-            color: #fff;
+            color: #ffffff;
             outline: none;
             margin-bottom: 15px;
             text-align: center;
             letter-spacing: 2px;
+            font-family: 'Share Tech Mono', monospace;
+            position: relative;
+            z-index: 1;
         }
+
+        input[type="password"]:focus {
+            box-shadow: 0 0 15px {{ theme_color }}55;
+        }
+
+        /* Login Button */
         .auth-btn {
             width: 100%;
-            padding: 12px;
+            padding: 14px;
             background: {{ theme_color }};
-            color: #000;
+            color: #000000;
             border: none;
             border-radius: 8px;
             font-weight: bold;
+            font-size: 14px;
             cursor: pointer;
             letter-spacing: 2px;
             transition: 0.3s;
+            font-family: 'Share Tech Mono', monospace;
+            position: relative;
+            z-index: 1;
         }
+
         .auth-btn:hover {
-            box-shadow: 0 0 20px {{ theme_color }};
+            box-shadow: 0 0 25px {{ theme_color }};
             transform: scale(1.02);
         }
+
         .footer {
-            margin-top: 20px;
+            margin-top: 25px;
             font-size: 10px;
-            opacity: 0.6;
+            opacity: 0.7;
             line-height: 1.6;
+            color: {{ theme_color }};
+            position: relative;
+            z-index: 1;
         }
     </style>
 </head>
@@ -144,7 +213,8 @@
                 <img src="https://files.catbox.moe/n5e1kb.jpeg" alt="logo">
             </div>
 
-            <div class="brand">{{ site_name }}</div>
+            <!-- Premium Clean Name -->
+            <div class="brand">RIXOR HOST</div>
             <div class="sub">• SECURE TERMINAL v3.0 •</div>
             <div class="prompt">> ACCESS_REQUEST<span class="cursor"></span></div>
 
@@ -159,7 +229,7 @@
 
             <div class="footer">
                 ⚠️ UNAUTHORIZED ACCESS PROHIBITED<br>
-                {{ site_name }} • SECURE SYSTEMS
+                RIXOR HOST • SECURE SYSTEMS
             </div>
         </div>
     </div>
@@ -167,29 +237,41 @@
     <script>
         const canvas = document.getElementById('matrix');
         const ctx = canvas.getContext('2d');
+        
+        // Canvas resize
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        const chars = '01アイウエオカキクセコ';
-        const cols = Math.floor(canvas.width / 14);
+        const chars = '01アイウエオカキクセコ'; // Japanese characters + binary
+        const fontSize = 14;
+        const cols = Math.floor(canvas.width / fontSize);
         const drops = Array(cols).fill(1);
 
         function draw() {
-            ctx.fillStyle = 'rgba(10, 10, 18, 0.05)';
+            // Clean fade effect for background
+            ctx.fillStyle = 'rgba(5, 5, 10, 0.06)'; 
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Text styling for matrix
             ctx.fillStyle = '{{ theme_color }}';
-            ctx.font = '12px monospace';
+            ctx.font = fontSize + 'px "Share Tech Mono", monospace';
 
             for (let i = 0; i < drops.length; i++) {
                 const text = chars[Math.floor(Math.random() * chars.length)];
-                ctx.fillText(text, i * 14, drops[i] * 14);
-                if (drops[i] * 14 > canvas.height && Math.random() > 0.975) {
+                
+                // Draw text
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+                // Reset drop to top after it reaches bottom
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
                     drops[i] = 0;
                 }
                 drops[i]++;
             }
         }
-        setInterval(draw, 33);
+        
+        // Slower interval for cleaner animation (less chaotic)
+        setInterval(draw, 50);
     </script>
 </body>
 </html>
